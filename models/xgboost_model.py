@@ -7,6 +7,7 @@ of Bitcoin prices.
 
 import numpy as np
 import xgboost as xgb
+from xgboost.callback import EarlyStopping
 from typing import Dict, Optional
 import joblib
 import os
@@ -110,11 +111,16 @@ class XGBoostModel:
             eval_set.append((X_val, y_val))
             print(f"Validation samples: {len(X_val)}")
 
+        # Create callbacks for early stopping (XGBoost 2.0+ API)
+        callbacks_list = []
+        if early_stopping_rounds is not None:
+            callbacks_list.append(EarlyStopping(rounds=early_stopping_rounds, save_best=True))
+
         self.model.fit(
             X_train,
             y_train,
             eval_set=eval_set,
-            early_stopping_rounds=early_stopping_rounds,
+            callbacks=callbacks_list if callbacks_list else None,
             verbose=verbose
         )
 
