@@ -41,7 +41,10 @@ class DataPreprocessor:
 
         # Handle missing values
         # For technical indicators, forward fill then backward fill
-        df = df.fillna(method='ffill').fillna(method='bfill')
+        df = df.ffill().bfill()
+
+        # Replace infinity values with NaN
+        df = df.replace([np.inf, -np.inf], np.nan)
 
         # Remove any remaining NaN rows (usually at the beginning due to rolling windows)
         initial_len = len(df)
@@ -49,7 +52,7 @@ class DataPreprocessor:
         removed = initial_len - len(df)
 
         if removed > 0:
-            print(f"Removed {removed} rows with missing values")
+            print(f"Removed {removed} rows with missing values and infinity values")
 
         return df
 
@@ -104,6 +107,14 @@ class DataPreprocessor:
 
         if feature_cols is None:
             feature_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+        # Safety check: Replace any remaining infinity values
+        df[feature_cols] = df[feature_cols].replace([np.inf, -np.inf], np.nan)
+
+        # Drop rows with NaN after infinity replacement
+        if df[feature_cols].isnull().any().any():
+            print(f"Warning: Found NaN values in features, dropping affected rows")
+            df = df.dropna(subset=feature_cols)
 
         if method == 'minmax':
             scaler = MinMaxScaler()
