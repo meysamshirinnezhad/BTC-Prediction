@@ -71,32 +71,27 @@ class TimesFMModel:
         print(f"Loading TimesFM model: {self.model_name}...")
 
         try:
-            if self.backend == "pytorch":
-                self.model = self.timesfm.TimesFM_2p5_200M_torch.from_pretrained(
-                    self.model_name
-                )
-            elif self.backend == "flax":
-                self.model = self.timesfm.TimesFM_2p5_200M.from_pretrained(
-                    self.model_name
-                )
-            else:
-                raise ValueError(f"Unknown backend: {self.backend}")
+            # Determine backend for TimesFM initialization
+            backend_str = "gpu" if self.backend == "pytorch" and hasattr(self, 'torch') and self.torch.cuda.is_available() else "cpu"
 
-            # Compile model with configuration
-            self.model.compile(
-                self.timesfm.ForecastConfig(
-                    max_context=self.max_context,
-                    max_horizon=self.max_horizon,
-                    normalize_inputs=self.normalize_inputs,
-                    use_continuous_quantile_head=self.use_continuous_quantile_head,
-                    force_flip_invariance=True,
-                    infer_is_positive=True,
-                    fix_quantile_crossing=True,
-                )
+            # Initialize TimesFM with configuration
+            # Note: TimesFM API uses TimesFm (capital F, lowercase m)
+            self.model = self.timesfm.TimesFm(
+                context_len=self.max_context,
+                horizon_len=self.max_horizon,
+                input_patch_len=32,
+                output_patch_len=128,
+                num_layers=20,
+                model_dims=1280,
+                backend=backend_str
             )
 
+            # Load pre-trained weights from HuggingFace
+            print(f"Loading checkpoint from {self.model_name}...")
+            self.model.load_from_checkpoint(repo_id=self.model_name)
+
             self.is_loaded = True
-            print("Model loaded and compiled successfully!")
+            print(f"Model loaded successfully on {backend_str.upper()}!")
 
         except Exception as e:
             print(f"Error loading TimesFM model: {e}")
@@ -163,9 +158,13 @@ class TimesFMModel:
 
         print(f"Generating forecast with horizon {horizon}...")
 
+        # TimesFM forecast API: forecast(inputs, freq=[0]*len(inputs))
+        # freq parameter: 0 for high-frequency data (hourly/daily)
+        freq = [0] * len(inputs)  # 0 indicates high-frequency time series
+
         point_forecast, quantile_forecast = self.model.forecast(
-            horizon=horizon,
-            inputs=inputs
+            inputs=inputs,
+            freq=freq
         )
 
         return point_forecast, quantile_forecast
