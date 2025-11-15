@@ -81,6 +81,47 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## VPS Deployment & Quick Start
+
+### Quick Start on VPS
+
+```bash
+# 1. Clone and setup
+git clone <your-repo-url>
+cd BTC-Prediction
+
+# 2. Run interactive setup
+chmod +x quick_start.sh
+./quick_start.sh
+
+# 3. Or automated training
+chmod +x auto_train.sh
+./auto_train.sh timesfm 180  # Fast demo
+./auto_train.sh xgboost 365  # Quick training
+./auto_train.sh lstm 365     # Full training
+```
+
+### Background Training (For Long Sessions)
+
+```bash
+# Option 1: Using nohup
+nohup ./auto_train.sh lstm 365 > training.log 2>&1 &
+
+# Option 2: Using screen
+screen -S btc-training
+./auto_train.sh lstm 365
+# Press Ctrl+A, then D to detach
+# Reattach: screen -r btc-training
+
+# Option 3: Using tmux
+tmux new -s btc-training
+./auto_train.sh lstm 365
+# Press Ctrl+B, then D to detach
+# Reattach: tmux attach -t btc-training
+```
+
+📖 **For complete VPS deployment guide, see [VPS_DEPLOYMENT.md](VPS_DEPLOYMENT.md)**
+
 ## Usage
 
 ### 1. Collect Data
