@@ -5,6 +5,7 @@ Models package for Bitcoin price prediction.
 from .lstm_model import LSTMModel, BidirectionalLSTMModel, create_lstm_model
 from .gru_model import GRUModel, BidirectionalGRUModel, create_gru_model
 from .xgboost_model import XGBoostModel, create_xgboost_model
+from .timesfm_model import TimesFMModel, create_timesfm_model
 
 __all__ = [
     'LSTMModel',
@@ -14,5 +15,7 @@ __all__ = [
     'BidirectionalGRUModel',
     'create_gru_model',
     'XGBoostModel',
-    'create_xgboost_model'
+    'create_xgboost_model',
+    'TimesFMModel',
+    'create_timesfm_model'
 ]

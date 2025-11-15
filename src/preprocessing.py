@@ -443,6 +443,99 @@ def prepare_data_for_xgboost(
     }
 
 
+def prepare_data_for_timesfm(
+    df: pd.DataFrame,
+    target_col: str = 'close',
+    context_length: int = 512,
+    forecast_horizon: int = 1,
+    train_ratio: float = 0.7,
+    val_ratio: float = 0.15,
+    test_ratio: float = 0.15
+) -> dict:
+    """
+    Prepare data for TimesFM model.
+
+    TimesFM is a pre-trained foundation model that works differently from LSTM/GRU.
+    It doesn't require sequence creation but uses variable-length time series.
+
+    Args:
+        df: Input DataFrame with features
+        target_col: Name of target column (usually 'close')
+        context_length: Maximum context length to use
+        forecast_horizon: Number of steps to predict ahead
+        train_ratio: Ratio of training data
+        val_ratio: Ratio of validation data
+        test_ratio: Ratio of test data
+
+    Returns:
+        Dictionary containing prepared data
+    """
+    print("Preparing data for TimesFM model...")
+
+    preprocessor = DataPreprocessor()
+
+    # Clean data
+    df = preprocessor.clean_data(df)
+    print(f"Data after cleaning: {len(df)} samples")
+
+    # Ensure target column is present
+    if target_col not in df.columns:
+        raise ValueError(f"Target column '{target_col}' not found in DataFrame")
+
+    # Extract target column (TimesFM works with univariate time series)
+    target_series = df[target_col].values
+
+    print(f"Target series length: {len(target_series)}")
+
+    # For evaluation, we need to create sequences
+    # Each sequence will be used to predict the next value(s)
+    X_list = []
+    y_list = []
+
+    # Create sliding windows
+    for i in range(context_length, len(target_series) - forecast_horizon + 1):
+        X_list.append(target_series[i-context_length:i])
+        y_list.append(target_series[i + forecast_horizon - 1])
+
+    X = np.array(X_list)
+    y = np.array(y_list)
+
+    print(f"Created {len(X)} sequences with context length {context_length}")
+
+    # Split data
+    n = len(X)
+    train_end = int(n * train_ratio)
+    val_end = int(n * (train_ratio + val_ratio))
+
+    X_train = X[:train_end]
+    X_val = X[train_end:val_end]
+    X_test = X[val_end:]
+
+    y_train = y[:train_end]
+    y_val = y[train_end:val_end]
+    y_test = y[val_end:]
+
+    print(f"Data split:")
+    print(f"  Train: {len(X_train)} samples ({train_ratio*100:.1f}%)")
+    print(f"  Validation: {len(X_val)} samples ({val_ratio*100:.1f}%)")
+    print(f"  Test: {len(X_test)} samples ({test_ratio*100:.1f}%)")
+
+    return {
+        'X_train': X_train,
+        'X_val': X_val,
+        'X_test': X_test,
+        'y_train': y_train,
+        'y_val': y_val,
+        'y_test': y_test,
+        'preprocessor': preprocessor,
+        'target_column': target_col,
+        'context_length': context_length,
+        'forecast_horizon': forecast_horizon,
+        'full_series': target_series,
+        'dates': df['date'].values if 'date' in df.columns else None
+    }
+
+
 if __name__ == "__main__":
     print("Data Preprocessing Module")
     print("This module provides data preprocessing and preparation utilities.")

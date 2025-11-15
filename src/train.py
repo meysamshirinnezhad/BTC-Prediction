@@ -1,7 +1,7 @@
 """
 Training script for Bitcoin price prediction models.
 
-This script provides a unified interface for training LSTM, GRU, and XGBoost models.
+This script provides a unified interface for training LSTM, GRU, XGBoost, and TimesFM models.
 """
 
 import argparse
@@ -18,10 +18,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.data_collector import BTCDataCollector
 from src.feature_engineering import create_features
-from src.preprocessing import prepare_data_for_lstm, prepare_data_for_xgboost
+from src.preprocessing import prepare_data_for_lstm, prepare_data_for_xgboost, prepare_data_for_timesfm
 from models.lstm_model import create_lstm_model
 from models.gru_model import create_gru_model
 from models.xgboost_model import create_xgboost_model
+from models.timesfm_model import create_timesfm_model
 
 
 def train_lstm_model(
@@ -283,6 +284,108 @@ def train_xgboost_model(df: pd.DataFrame) -> dict:
     }
 
 
+def train_timesfm_model(
+    df: pd.DataFrame,
+    context_length: int = 512,
+    horizon: int = 1,
+    backend: str = "pytorch"
+) -> dict:
+    """
+    Evaluate TimesFM model (pre-trained, no training needed).
+
+    TimesFM is a pre-trained foundation model, so we load it and evaluate
+    its performance directly on the data.
+
+    Args:
+        df: DataFrame with price data
+        context_length: Context length for predictions
+        horizon: Forecast horizon
+        backend: Backend to use ('pytorch' or 'flax')
+
+    Returns:
+        Dictionary with model and results
+    """
+    print("\n" + "="*80)
+    print("Loading and Evaluating TimesFM Model")
+    print("="*80)
+    print("Note: TimesFM is a pre-trained foundation model.")
+    print("It will be loaded and evaluated directly without additional training.")
+
+    # Prepare data (we only need the target column for TimesFM)
+    data = prepare_data_for_timesfm(
+        df,
+        context_length=context_length,
+        forecast_horizon=horizon,
+        train_ratio=0.7,
+        val_ratio=0.15,
+        test_ratio=0.15
+    )
+
+    # Create and load model
+    model = create_timesfm_model(
+        backend=backend,
+        max_context=min(context_length, 1024),  # TimesFM 2.5 supports up to 16k, but start with 1024
+        max_horizon=max(horizon, 256),
+        normalize_inputs=True,
+        use_continuous_quantile_head=True
+    )
+
+    # Load pre-trained model
+    model.load_model()
+
+    # Evaluate on test set
+    print("\n" + "-"*80)
+    print("Evaluating on test set...")
+    metrics = model.evaluate(
+        data['X_test'],
+        data['y_test'],
+        horizon=horizon,
+        context_length=context_length
+    )
+
+    print("\nTest Set Performance:")
+    print(f"  MAE:  {metrics['mae']:.6f}")
+    print(f"  RMSE: {metrics['rmse']:.6f}")
+    print(f"  MAPE: {metrics['mape']:.2f}%")
+    print(f"  Directional Accuracy: {metrics['directional_accuracy']:.2%}")
+
+    # Make sample predictions with quantiles
+    print("\n" + "-"*80)
+    print("Generating sample predictions with confidence intervals...")
+    sample_predictions = model.predict_with_quantiles(
+        data['X_test'][:5],  # First 5 test samples
+        horizon=horizon,
+        context_length=context_length
+    )
+
+    print(f"\nSample predictions (first 5):")
+    for i in range(min(5, len(sample_predictions['point']))):
+        point = sample_predictions['point'][i, 0] if horizon == 1 else sample_predictions['point'][i]
+        lower = sample_predictions['lower_bound'][i, 0] if horizon == 1 else sample_predictions['lower_bound'][i]
+        upper = sample_predictions['upper_bound'][i, 0] if horizon == 1 else sample_predictions['upper_bound'][i]
+        actual = data['y_test'][i]
+
+        print(f"  Sample {i+1}:")
+        print(f"    Actual: {actual:.2f}")
+        print(f"    Predicted: {point:.2f}")
+        print(f"    90% CI: [{lower:.2f}, {upper:.2f}]")
+
+    # Save model configuration
+    model_dir = "models/trained"
+    os.makedirs(model_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    config_path = os.path.join(model_dir, f"timesfm_config_{timestamp}.pkl")
+    model.save_config(config_path)
+
+    return {
+        'model': model,
+        'metrics': metrics,
+        'data': data,
+        'config_path': config_path,
+        'sample_predictions': sample_predictions
+    }
+
+
 def plot_training_history(history, model_name: str, save_path: str = None):
     """
     Plot training history.
@@ -353,7 +456,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        choices=['lstm', 'gru', 'xgboost', 'all'],
+        choices=['lstm', 'gru', 'xgboost', 'timesfm', 'all'],
         default='lstm',
         help="Model to train (default: lstm)"
     )
@@ -386,6 +489,19 @@ def main():
         type=int,
         default=32,
         help="Batch size (default: 32)"
+    )
+    parser.add_argument(
+        "--context-length",
+        type=int,
+        default=512,
+        help="Context length for TimesFM (default: 512)"
+    )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        choices=['pytorch', 'flax'],
+        default='pytorch',
+        help="Backend for TimesFM (default: pytorch)"
     )
 
     args = parser.parse_args()
@@ -443,6 +559,16 @@ def main():
     if args.model in ['xgboost', 'all']:
         results['xgboost'] = train_xgboost_model(df)
         save_results(results['xgboost'], 'xgboost')
+
+    if args.model in ['timesfm', 'all']:
+        # TimesFM doesn't use features, just raw price data
+        results['timesfm'] = train_timesfm_model(
+            df_raw,  # Use raw data for TimesFM
+            context_length=args.context_length,
+            horizon=1,
+            backend=args.backend
+        )
+        save_results(results['timesfm'], 'timesfm')
 
     # Print summary
     print("\n" + "="*80)

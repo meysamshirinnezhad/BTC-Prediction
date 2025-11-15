@@ -22,11 +22,18 @@ This project implements a complete end-to-end pipeline for Bitcoin price predict
   - Custom features (price changes, rolling statistics)
 
 - **Multiple Models**:
-  - LSTM (Long Short-Term Memory) networks
-  - GRU (Gated Recurrent Unit) networks
-  - XGBoost for comparison with traditional ML
+  - **LSTM** (Long Short-Term Memory) networks
+  - **GRU** (Gated Recurrent Unit) networks
+  - **XGBoost** for comparison with traditional ML
+  - **TimesFM** - Google's pre-trained Time Series Foundation Model (NEW!)
 
 - **Evaluation**: Comprehensive metrics including MAE, RMSE, MAPE, and directional accuracy
+
+- **TimesFM Integration**:
+  - Pre-trained foundation model - no training required!
+  - Built-in quantile forecasting with confidence intervals
+  - Supports up to 16k context length
+  - Zero-shot predictions on new data
 
 ## Project Structure
 
@@ -39,7 +46,8 @@ BTC-Prediction/
 │   ├── trained/          # Saved model weights
 │   ├── lstm_model.py     # LSTM model definition
 │   ├── gru_model.py      # GRU model definition
-│   └── xgboost_model.py  # XGBoost model definition
+│   ├── xgboost_model.py  # XGBoost model definition
+│   └── timesfm_model.py  # TimesFM model wrapper
 ├── src/
 │   ├── data_collector.py      # Data fetching utilities
 │   ├── feature_engineering.py # Technical indicator calculation
@@ -92,6 +100,12 @@ python src/train.py --model gru --epochs 100
 
 # Train XGBoost model
 python src/train.py --model xgboost
+
+# Evaluate TimesFM (pre-trained, no training needed!)
+python src/train.py --model timesfm --context-length 512
+
+# Train all models
+python src/train.py --model all --days 365
 ```
 
 ### 3. Make Predictions
@@ -108,11 +122,14 @@ python src/train.py --model lstm --evaluate
 
 ## Model Performance
 
-| Model | MAE | RMSE | MAPE | Directional Accuracy |
-|-------|-----|------|------|---------------------|
-| LSTM  | TBD | TBD  | TBD  | TBD                |
-| GRU   | TBD | TBD  | TBD  | TBD                |
-| XGBoost| TBD | TBD  | TBD  | TBD                |
+| Model | Training | MAE | RMSE | MAPE | Directional Accuracy |
+|-------|----------|-----|------|------|---------------------|
+| LSTM  | Required | TBD | TBD  | TBD  | TBD                |
+| GRU   | Required | TBD | TBD  | TBD  | TBD                |
+| XGBoost| Required| TBD | TBD  | TBD  | TBD                |
+| TimesFM| **Pre-trained** | TBD | TBD  | TBD  | TBD                |
+
+**Note**: TimesFM is a pre-trained model and doesn't require training time, making it ideal for quick predictions!
 
 ## Configuration
 
@@ -139,14 +156,21 @@ The system uses the following technical indicators:
 4. **Ensemble**: Combine predictions from multiple models
 5. **Evaluation**: Assess performance on held-out test set
 
+## Documentation
+
+- **[USAGE.md](USAGE.md)** - Detailed usage guide with code examples
+- **[TIMESFM_GUIDE.md](TIMESFM_GUIDE.md)** - Complete guide for using Google's TimesFM model
+- **[notebooks/quickstart.ipynb](notebooks/quickstart.ipynb)** - Interactive tutorial
+
 ## Future Improvements
 
 - [ ] Add sentiment analysis from social media and news
-- [ ] Implement transformer-based models
+- [x] ~~Implement transformer-based models~~ (TimesFM integrated!)
 - [ ] Add real-time prediction API
 - [ ] Incorporate on-chain metrics
-- [ ] Ensemble methods for improved accuracy
+- [ ] Ensemble methods combining TimesFM with other models
 - [ ] AutoML for hyperparameter optimization
+- [ ] Fine-tuning TimesFM on Bitcoin-specific data
 
 ## Disclaimer
 

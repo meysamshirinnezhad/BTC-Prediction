@@ -22,6 +22,7 @@ from src.preprocessing import DataPreprocessor
 from models.lstm_model import LSTMModel
 from models.gru_model import GRUModel
 from models.xgboost_model import XGBoostModel
+from models.timesfm_model import TimesFMModel
 
 # Set style for plots
 sns.set_style('whitegrid')
@@ -36,8 +37,8 @@ class BTCPredictor:
         Initialize predictor.
 
         Args:
-            model_path: Path to trained model
-            model_type: Type of model ('lstm', 'gru', 'xgboost')
+            model_path: Path to trained model or config
+            model_type: Type of model ('lstm', 'gru', 'xgboost', 'timesfm')
             preprocessor_path: Path to preprocessor (for LSTM/GRU)
         """
         self.model_type = model_type
@@ -66,6 +67,14 @@ class BTCPredictor:
         elif self.model_type == 'xgboost':
             self.model = XGBoostModel()
             self.model.load_model(model_path)
+        elif self.model_type == 'timesfm':
+            # For TimesFM, model_path is the config path
+            self.model = TimesFMModel()
+            if model_path and os.path.exists(model_path):
+                self.model.load_config(model_path)
+            else:
+                # Use default configuration
+                self.model.load_model()
         else:
             raise ValueError(f"Unknown model type: {self.model_type}")
 
@@ -307,7 +316,7 @@ def main():
     parser.add_argument(
         "--model-type",
         type=str,
-        choices=['lstm', 'gru', 'xgboost'],
+        choices=['lstm', 'gru', 'xgboost', 'timesfm'],
         required=True,
         help="Type of model"
     )
